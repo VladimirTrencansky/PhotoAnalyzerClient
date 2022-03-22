@@ -1,5 +1,5 @@
 //@ts-check
-import { Card, CardContent, Grid, useMediaQuery } from "@mui/material";
+import { Button, Card, CardContent, Grid, useMediaQuery } from "@mui/material";
 import CssBaseline from "@mui/material/CssBaseline";
 import { createTheme, ThemeProvider } from "@mui/material/styles";
 import axios from "axios";
@@ -16,13 +16,14 @@ function App() {
   const [processedData, setProcesssedData] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [session] = useState(new Date().toISOString());
+  const [isProcessingDone, setIsProcessingDone] = useState(false);
 
   const clearStates = () => {
     setProcesssedData([]);
-    setLoadingText(null);
     setProgress(0);
+    setIsProcessingDone(false);
   };
 
   const theme = React.useMemo(
@@ -46,8 +47,13 @@ function App() {
       formData.append("formFile", file);
     });
 
+    formData.append("session", session);
+
     try {
-      result = await axios.post("https://localhost:7100/api/PhotoAnalyzer", formData);
+      result = await axios.post(
+        "https://localhost:7100/api/PhotoAnalyzer",
+        formData
+      );
     } catch (ex) {
       console.log(ex);
       setIsLoading(false);
@@ -62,7 +68,6 @@ function App() {
 
   const processFiles = async () => {
     setIsLoading(true);
-    setLoadingText("Processing photos");
     const pageCount = selectedFiles.slice(pageSize).length;
 
     for (let i = 1; i < pageCount; i++) {
@@ -73,8 +78,26 @@ function App() {
         setProcesssedData((oldValue) => [...oldValue, ...processResponse.data]);
       }
     }
-    setLoadingText("Processing done");
+    setIsProcessingDone(true);
     setIsLoading(false);
+  };
+
+  const downloadCsv = async () => {
+    try {
+      axios.get(
+        "https://localhost:7100/api/PhotoAnalyzer/Export",
+        { params: { session: session, responseType: "blob" } }
+      ).then((response) => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'Export.csv'); //or any other extension
+        document.body.appendChild(link);
+        link.click();
+    });;
+    } catch (ex) {
+      console.log(ex);
+    }
   };
 
   const getInfo = () => {
@@ -110,6 +133,11 @@ function App() {
                 )}
                 {selectedFiles && selectedFiles.length > 0 ? getInfo() : null}
                 <br />
+                {isProcessingDone ? (
+                  <Button onClick={downloadCsv} variant="outlined">
+                    Download csv
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           </Grid>
