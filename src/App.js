@@ -30,7 +30,7 @@ function App() {
     () =>
       createTheme({
         palette: {
-          mode: prefersDarkMode ? "dark" : "light",
+          mode: "dark",
         },
       }),
     [prefersDarkMode]
@@ -68,15 +68,23 @@ function App() {
 
   const processFiles = async () => {
     setIsLoading(true);
-    const pageCount = selectedFiles.slice(pageSize).length;
+    try {
+      let pageCount = selectedFiles.slice(pageSize).length;
+      pageCount = pageCount == 0 ? 1 : pageCount;
 
-    for (let i = 1; i < pageCount; i++) {
-      const page = paginate(selectedFiles, pageSize, i);
+      for (let i = 1; i <= pageCount; i++) {
+        const page = paginate(selectedFiles, pageSize, i);
 
-      if (page != null && page.length > 0) {
-        const processResponse = await uploadAndProcessPhotos(page);
-        setProcesssedData((oldValue) => [...oldValue, ...processResponse.data]);
+        if (page != null && page.length > 0) {
+          const processResponse = await uploadAndProcessPhotos(page);
+          setProcesssedData((oldValue) => [
+            ...oldValue,
+            ...processResponse.data,
+          ]);
+        }
       }
+    } catch (ex) {
+      console.log(ex);
     }
     setIsProcessingDone(true);
     setIsLoading(false);
@@ -84,17 +92,18 @@ function App() {
 
   const downloadCsv = async () => {
     try {
-      axios.get(
-        "https://localhost:7100/api/PhotoAnalyzer/Export",
-        { params: { session: session, responseType: "blob" } }
-      ).then((response) => {
-        const url = window.URL.createObjectURL(new Blob([response.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'Export.csv'); 
-        document.body.appendChild(link);
-        link.click();
-    });;
+      axios
+        .get("https://localhost:7100/api/PhotoAnalyzer/Export", {
+          params: { session: session, responseType: "blob" },
+        })
+        .then((response) => {
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const link = document.createElement("a");
+          link.href = url;
+          link.setAttribute("download", "Export.csv");
+          document.body.appendChild(link);
+          link.click();
+        });
     } catch (ex) {
       console.log(ex);
     }
